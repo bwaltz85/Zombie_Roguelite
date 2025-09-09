@@ -1,0 +1,79 @@
+# =============== #
+# Unity generated #
+# =============== #
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Mm]emoryCaptures/
+UserSettings/
+MemoryCaptures/
+SysInfo/
+
+# Crash Reports
+sysinfo.txt
+
+# ============ #
+# Visual Studio #
+# ============ #
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# ============ #
+# MonoDevelop  #
+# ============ #
+*.pidb
+*.userprefs
+
+# ============ #
+# Rider        #
+# ============ #
+.idea/
+*.sln.iml
+
+# ============ #
+# VS Code      #
+# ============ #
+.vscode/
+
+# ============ #
+# JetBrains    #
+# ============ #
+*.DotSettings.user
+
+# ============ #
+# Mac / Linux  #
+# ============ #
+.DS_Store
+*.apk
+*.unitypackage
+
+# ============ #
+# Builds       #
+# ============ #
+[Bb]uild/
+[Bb]uilds/
+*.apk
+*.aab
+*.xcodeproj
+*.xcworkspace
+*.xcuserstate
+
+# ============ #
+# Cache        #
+# ============ #
+[Cc]ache/

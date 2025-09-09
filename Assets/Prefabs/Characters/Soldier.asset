@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6ac08ab9a29d9124c87b7cb94da43343, type: 3}
+  m_Name: Soldier
+  m_EditorClassIdentifier: 
+  characterName: Soldier
+  portrait: {fileID: 0}
+  maxHP: 100
+  moveSpeed: 7
+  startingWeaponPrefab: {fileID: 0}
+  active1Prefab: {fileID: 3184587360869797355, guid: 73aa3c9b988d06e4c982eda840a47959, type: 3}
+  active2Prefab: {fileID: 0}
+  active3Prefab: {fileID: 0}
+  ultimateAbilityPrefab: {fileID: 1662737534625658838, guid: 8f8a08c44d131034c9c8e2c34b6dbdc5, type: 3}
+  passive: {fileID: 0}
+  passiveDescription: 
