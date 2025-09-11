@@ -14,12 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   characterName: Soldier
   portrait: {fileID: 0}
-  maxHP: 100
-  moveSpeed: 7
-  startingWeaponPrefab: {fileID: 0}
-  active1Prefab: {fileID: 3184587360869797355, guid: 73aa3c9b988d06e4c982eda840a47959, type: 3}
-  active2Prefab: {fileID: 0}
-  active3Prefab: {fileID: 0}
-  ultimateAbilityPrefab: {fileID: 1662737534625658838, guid: 8f8a08c44d131034c9c8e2c34b6dbdc5, type: 3}
-  passive: {fileID: 0}
-  passiveDescription: 
+  playerPrefab: {fileID: 0}
+  ability1Prefab: {fileID: 3184587360869797355, guid: 73aa3c9b988d06e4c982eda840a47959, type: 3}
+  ability2Prefab: {fileID: 0}
+  ability3Prefab: {fileID: 0}
+  ultimatePrefab: {fileID: 1662737534625658838, guid: 8f8a08c44d131034c9c8e2c34b6dbdc5, type: 3}
+  passivePrefab: {fileID: 0}

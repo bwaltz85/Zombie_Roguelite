@@ -119,6 +119,11 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!4 &172279601 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 8861805694476924349, guid: 5457417aef39ec449933ccc74e404bda, type: 3}
+  m_PrefabInstance: {fileID: 1219692100}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &330585543
 GameObject:
   m_ObjectHideFlags: 0
@@ -419,6 +424,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 422354199}
+  - component: {fileID: 422354200}
   m_Layer: 0
   m_Name: GameLoop
   m_TagString: Untagged
@@ -441,6 +447,20 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &422354200
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 422354198}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fd48bc1e7124ec2438ea49e8af96902a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  State: 0
+  dontDestroyOnLoad: 1
 --- !u!1 &436927088
 GameObject:
   m_ObjectHideFlags: 0
@@ -547,7 +567,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1178316532}
   - component: {fileID: 1178316531}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: EnemySpawner
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -568,14 +588,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   enemyPrefab: {fileID: 3542306117884778078, guid: 273bd30735244104896bcbc9986ee9ec, type: 3}
   spawnInterval: 2
-  enemiesPerWave: 5
+  enemiesPerWave: 1
   spawnPoints: []
-  player: {fileID: 0}
+  player: {fileID: 8861805694476924349, guid: 5457417aef39ec449933ccc74e404bda, type: 3}
   spawnRadius: 20
   minDistanceFromPlayer: 8
   snapToNavMesh: 1
   navMeshSnapMaxDist: 5
   requireReachableFromPlayer: 1
+  forceEnemyLayerName: Enemy
+  forceEnemyLayer: 1
+  logVerbose: 1
 --- !u!4 &1178316532
 Transform:
   m_ObjectHideFlags: 0
@@ -733,7 +756,7 @@ MonoBehaviour:
   m_MinRegionArea: 2
   m_NavMeshData: {fileID: 23800000, guid: 693e6ff1111efba42b9e5ef30bf5ea57, type: 2}
   m_BuildHeightMesh: 0
---- !u!1001 &1358476062
+--- !u!1001 &1219692100
 PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
@@ -741,6 +764,34 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: -4261071778066240041, guid: 5457417aef39ec449933ccc74e404bda, type: 3}
+      propertyPath: playerXP
+      value: 
+      objectReference: {fileID: -4607600508959113323, guid: 5457417aef39ec449933ccc74e404bda, type: 3}
+    - target: {fileID: -2497297057999504029, guid: 5457417aef39ec449933ccc74e404bda, type: 3}
+      propertyPath: abilityManager
+      value: 
+      objectReference: {fileID: 6004513584293287091, guid: 5457417aef39ec449933ccc74e404bda, type: 3}
+    - target: {fileID: -602866318514372756, guid: 5457417aef39ec449933ccc74e404bda, type: 3}
+      propertyPath: abilityManager
+      value: 
+      objectReference: {fileID: 6004513584293287091, guid: 5457417aef39ec449933ccc74e404bda, type: 3}
+    - target: {fileID: 6004513584293287091, guid: 5457417aef39ec449933ccc74e404bda, type: 3}
+      propertyPath: keyUlt
+      value: 52
+      objectReference: {fileID: 0}
+    - target: {fileID: 6825493256550860390, guid: 5457417aef39ec449933ccc74e404bda, type: 3}
+      propertyPath: damage
+      value: 25
+      objectReference: {fileID: 0}
+    - target: {fileID: 6825493256550860390, guid: 5457417aef39ec449933ccc74e404bda, type: 3}
+      propertyPath: fireRate
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 6825493256550860390, guid: 5457417aef39ec449933ccc74e404bda, type: 3}
+      propertyPath: enemyLayers.m_Bits
+      value: 128
+      objectReference: {fileID: 0}
     - target: {fileID: 8861805694476924349, guid: 5457417aef39ec449933ccc74e404bda, type: 3}
       propertyPath: m_LocalPosition.x
       value: -2.6918652
@@ -868,7 +919,7 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  waveInterval: 2
+  waveInterval: 5
 --- !u!4 &1516900053
 Transform:
   m_ObjectHideFlags: 0
@@ -895,7 +946,7 @@ GameObject:
   - component: {fileID: 1629669390}
   - component: {fileID: 1629669389}
   m_Layer: 0
-  m_Name: GameBootStrap
+  m_Name: GameSceneBootstrap
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -913,10 +964,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e85e249d636d876409b11748110699de, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  playerSetup: {fileID: -602866318514372756, guid: 5457417aef39ec449933ccc74e404bda, type: 3}
-  fallbackCharacter: {fileID: 0}
-  enemySpawner: {fileID: 1178316531}
-  autoStartRun: 1
+  defaultPlayerPrefab: {fileID: 0}
+  fallbackSpawnPoint: {fileID: 0}
+  forcePlayerTag: 1
 --- !u!4 &1629669390
 Transform:
   m_ObjectHideFlags: 0
@@ -1019,7 +1069,7 @@ MonoBehaviour:
   m_StreamingVersion: 20241001
   m_LegacyPriority: 0
   Target:
-    TrackingTarget: {fileID: 0}
+    TrackingTarget: {fileID: 172279601}
     LookAtTarget: {fileID: 0}
     CustomLookAtTarget: 0
   Lens:
@@ -1061,14 +1111,14 @@ Transform:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 330585546}
   - {fileID: 410087041}
   - {fileID: 832575519}
   - {fileID: 1205700819}
-  - {fileID: 1882068828}
   - {fileID: 422354199}
   - {fileID: 1178316532}
   - {fileID: 1516900053}
   - {fileID: 436927090}
-  - {fileID: 1358476062}
   - {fileID: 1629669390}
+  - {fileID: 1219692100}
+  - {fileID: 1882068828}
+  - {fileID: 330585546}

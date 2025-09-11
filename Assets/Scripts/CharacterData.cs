@@ -1,27 +1,29 @@
 using UnityEngine;
 
-[CreateAssetMenu(menuName = "Game/Character", fileName = "NewCharacter")]
+[CreateAssetMenu(fileName = "CharacterData", menuName = "Game/Character Data")]
 public class CharacterData : ScriptableObject
 {
-    public string characterName = "Unnamed";
+    [Header("Info")]
+    public string characterName = "New Character";
     public Sprite portrait;
 
-    [Header("Base Stats")]
-    public float maxHP = 100f;
-    public float moveSpeed = 7f;
+    [Header("Player Prefab (optional)")]
+    [Tooltip("If you want to spawn a specific player prefab per character from data.")]
+    public GameObject playerPrefab;
 
-    [Header("Starting Loadout")]
-    public GameObject startingWeaponPrefab;   // optional child prefab if you need one
+    [Header("Abilities (1-4)")]
+    [Tooltip("Triggered by Alpha1")]
+    public GameObject ability1Prefab;
 
-    [Header("Active Abilities (Q / E / F)")]
-    public GameObject active1Prefab;  // e.g., Dash
-    public GameObject active2Prefab;  // e.g., Grenade
-    public GameObject active3Prefab;  // e.g., Shield
+    [Tooltip("Triggered by Alpha2")]
+    public GameObject ability2Prefab;
 
-    [Header("Ultimate (R)")]
-    public GameObject ultimateAbilityPrefab;  // e.g., Shockwave
+    [Tooltip("Triggered by Alpha3")]
+    public GameObject ability3Prefab;
+
+    [Tooltip("Triggered by Alpha4 (ultimate)")]
+    public GameObject ultimatePrefab;
 
     [Header("Passive")]
-    public PassiveBase passive;
-    [TextArea] public string passiveDescription;
+    public GameObject passivePrefab;
 }

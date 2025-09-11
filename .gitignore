@@ -1,23 +1,15 @@
-# =============== #
-# Unity generated #
-# =============== #
+# Unity generated folders
 [Ll]ibrary/
 [Tt]emp/
 [Oo]bj/
 [Bb]uild/
 [Bb]uilds/
 [Ll]ogs/
-[Mm]emoryCaptures/
-UserSettings/
-MemoryCaptures/
-SysInfo/
+[Uu]ser[Ss]ettings/
 
-# Crash Reports
-sysinfo.txt
-
-# ============ #
-# Visual Studio #
-# ============ #
+# IDE / editor files
+.vs/
+.vscode/
 *.csproj
 *.unityproj
 *.sln
@@ -30,50 +22,12 @@ sysinfo.txt
 *.svd
 *.pdb
 *.mdb
-*.opendb
-*.VC.db
 
-# ============ #
-# MonoDevelop  #
-# ============ #
-*.pidb
-*.userprefs
+# Crash / build reports
+sysinfo.txt
 
-# ============ #
-# Rider        #
-# ============ #
-.idea/
-*.sln.iml
-
-# ============ #
-# VS Code      #
-# ============ #
-.vscode/
-
-# ============ #
-# JetBrains    #
-# ============ #
-*.DotSettings.user
-
-# ============ #
-# Mac / Linux  #
-# ============ #
-.DS_Store
-*.apk
-*.unitypackage
-
-# ============ #
-# Builds       #
-# ============ #
-[Bb]uild/
-[Bb]uilds/
+# Other Unity stuff
+MemoryCaptures/
 *.apk
 *.aab
-*.xcodeproj
-*.xcworkspace
-*.xcuserstate
-
-# ============ #
-# Cache        #
-# ============ #
-[Cc]ache/
+*.unitypackage

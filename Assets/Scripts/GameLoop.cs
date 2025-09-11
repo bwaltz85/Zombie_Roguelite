@@ -1,107 +1,97 @@
 using UnityEngine;
-using UnityEngine.Events;
-using UnityEngine.SceneManagement;
-using UnityEngine.InputSystem; // new Input System
 
 public enum GameState { Menu, Playing, Paused, GameOver }
 
 public class GameLoop : MonoBehaviour
 {
-    public static GameLoop I;
+    public static GameLoop I { get; private set; }
 
-    [Header("Events")]
-    public UnityEvent onStart;
-    public UnityEvent onPause;
-    public UnityEvent onResume;
-    public UnityEvent onGameOver;
+    [Header("State")]
+    public GameState State = GameState.Menu;
 
-    public GameState State { get; private set; } = GameState.Menu;
-    public float Elapsed { get; private set; }
+    [Header("Options")]
+    [Tooltip("If true, this object persists between scene loads.")]
+    public bool dontDestroyOnLoad = true;
 
-    // Runtime-created input actions (no generated Controls class required)
-    private InputAction pauseAction;
-    private InputAction restartAction;
+    float runStartTime;
+    float pausedTimeAccumulated;
+    float lastPauseTime;
+
+    /// <summary>
+    /// Time since the current run started, excluding pause time.
+    /// Returns 0 if not currently playing.
+    /// </summary>
+    public float Elapsed
+    {
+        get
+        {
+            if (State == GameState.Menu || State == GameState.GameOver)
+                return 0f;
+
+            float now = Time.time;
+            float baseElapsed = now - runStartTime;
+
+            if (State == GameState.Paused)
+                return (lastPauseTime - runStartTime) - pausedTimeAccumulated;
+
+            return baseElapsed - pausedTimeAccumulated;
+        }
+    }
 
     void Awake()
     {
-        if (I == null) I = this;
-        else { Destroy(gameObject); return; }
-        DontDestroyOnLoad(gameObject);
-
-        // Create input actions programmatically
-        pauseAction = new InputAction(name: "Pause", type: InputActionType.Button, binding: "<Keyboard>/escape");
-        restartAction = new InputAction(name: "Restart", type: InputActionType.Button, binding: "<Keyboard>/r");
-
-        pauseAction.performed += _ =>
+        if (I != null && I != this)
         {
-            if (State == GameState.Playing) Pause();
-            else if (State == GameState.Paused) Resume();
-        };
+            Destroy(gameObject);
+            return;
+        }
+        I = this;
 
-        restartAction.performed += _ =>
-        {
-            if (State == GameState.GameOver) Restart();
-        };
+        if (dontDestroyOnLoad)
+            DontDestroyOnLoad(gameObject);
+
+        if (Time.timeScale <= 0f) Time.timeScale = 1f;
     }
 
-    void OnEnable()
-    {
-        pauseAction?.Enable();
-        restartAction?.Enable();
-    }
+    // --- Public API ---
 
-    void OnDisable()
-    {
-        restartAction?.Disable();
-        pauseAction?.Disable();
-    }
-
-    void Update()
-    {
-        if (State == GameState.Playing) Elapsed += Time.deltaTime;
-    }
-
+    /// <summary> Begin a run: time unpaused, state -> Playing. </summary>
     public void StartRun()
     {
-        Elapsed = 0f;
-        State = GameState.Playing;
         Time.timeScale = 1f;
-        onStart?.Invoke();
-        Debug.Log("[GameLoop] Run started.");
+        State = GameState.Playing;
+        runStartTime = Time.time;
+        pausedTimeAccumulated = 0f;
+        lastPauseTime = 0f;
+        Debug.Log("[GameLoop] Run started (state=Playing).");
     }
 
     public void Pause()
     {
         if (State != GameState.Playing) return;
         State = GameState.Paused;
+        lastPauseTime = Time.time;
         Time.timeScale = 0f;
-        onPause?.Invoke();
-        Debug.Log("[GameLoop] Paused.");
     }
 
     public void Resume()
     {
         if (State != GameState.Paused) return;
         State = GameState.Playing;
+        pausedTimeAccumulated += Time.time - lastPauseTime;
+        lastPauseTime = 0f;
         Time.timeScale = 1f;
-        onResume?.Invoke();
-        Debug.Log("[GameLoop] Resumed.");
+    }
+
+    public void EndRunToMenu()
+    {
+        State = GameState.Menu;
+        Time.timeScale = 1f;
     }
 
     public void GameOver()
     {
-        if (State == GameState.GameOver) return;
         State = GameState.GameOver;
         Time.timeScale = 0f;
-        onGameOver?.Invoke();
-        Debug.Log("[GameLoop] Game Over. Press R to Restart.");
-    }
-
-    public void Restart()
-    {
-        State = GameState.Menu;
-        Time.timeScale = 1f;
-        var scene = SceneManager.GetActiveScene();
-        SceneManager.LoadScene(scene.buildIndex);
     }
 }

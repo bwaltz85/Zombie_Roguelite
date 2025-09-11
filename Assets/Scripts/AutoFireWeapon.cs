@@ -1,118 +1,204 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 public class AutoFireWeapon : MonoBehaviour
 {
-    [Header("Weapon")]
-    public float fireRate = 2f;        // shots per second
-    public float damage = 5f;
-    public float range = 15f;
+    [Header("Scan")]
+    public float range = 12f;
 
-    [Header("Targeting")]
-    public LayerMask targetLayers;     // set to Enemy in Inspector
-    public bool useLayerFilter = true; // turn OFF to ignore layer mask for debugging
-    public bool includeTriggers = false;
+    [Tooltip("Layers considered 'enemies'. Set this to your Enemy layer(s).")]
+    public LayerMask enemyLayers;
 
-    [Header("FX (optional)")]
-    public Animator animator;
-    public string fireTrigger = "Fire";
-    public ParticleSystem muzzleFlash;
+    [Tooltip("Only target objects (or their parents) that carry this tag. Leave blank to ignore tag filtering.")]
+    public string targetTag = "Enemy";
 
-    [Header("Debug")]
-    public bool verboseLogs = true;
+    public bool includeTriggers = true;
 
-    private readonly Collider[] _hits = new Collider[128];
-    private float _timer;
+    [Header("Firing")]
+    public float fireRate = 4f;
+
+    [FormerlySerializedAs("damagePerShot")]
+    public float damage = 10f;
+
+    public Transform muzzle;
+    public bool requireLineOfSight = false;
+    public LayerMask losBlockers;
+
+    [Header("Debug / Safety")]
+    [Tooltip("Temporarily ignore the enemyLayers filter and scan ALL layers (debug only).")]
+    public bool debugIgnoreLayerMask = false;
+
+    [Tooltip("If enemyLayers is ZERO at runtime, we can scan ALL layers but we still enforce tag + self-exclusion to avoid friendly fire.")]
+    public bool fallbackScanAllIfMaskZero = true;
+
+    public bool logVerbose = true;
+    public bool drawGizmos = true;
+
+    float _fireTimer;
+    Vector3 _lastShotFrom, _lastShotTo;
+    bool _hadHitThisFrame;
+
+    Transform _root; // cached root to exclude self
+
+    void Awake()
+    {
+        _root = transform.root;
+    }
+
+    void Reset()
+    {
+        muzzle = transform;
+        // Try to auto-assign "Enemy" layer if it exists
+        int enemyLayer = LayerMask.NameToLayer("Enemy");
+        if (enemyLayer >= 0) enemyLayers = 1 << enemyLayer;
+    }
 
     void Update()
     {
-        _timer -= Time.deltaTime;
-        if (_timer <= 0f)
+        if (GameLoop.I == null || GameLoop.I.State != GameState.Playing) return;
+
+        _fireTimer -= Time.deltaTime;
+        if (_fireTimer <= 0f)
         {
-            if (TryFireOnce())
-                _timer = 1f / fireRate;
-            else
-                _timer = Mathf.Min(_timer + 0.05f, 0f);
+            TryFireOnce();
+            _fireTimer = 1f / Mathf.Max(0.01f, fireRate);
         }
     }
 
-    bool TryFireOnce()
+    void TryFireOnce()
     {
-        int count;
-        if (useLayerFilter)
-        {
-            count = Physics.OverlapSphereNonAlloc(
-                transform.position, range, _hits, targetLayers,
-                includeTriggers ? QueryTriggerInteraction.Collide : QueryTriggerInteraction.Ignore
-            );
-        }
+        var origin = muzzle ? muzzle.position : transform.position;
+        _hadHitThisFrame = false;
+        _lastShotFrom = origin;
+        _lastShotTo = origin;
+
+        // Build mask safely
+        int mask;
+        if (debugIgnoreLayerMask) mask = ~0;
         else
         {
-            count = Physics.OverlapSphereNonAlloc(
-                transform.position, range, _hits, ~0,
-                includeTriggers ? QueryTriggerInteraction.Collide : QueryTriggerInteraction.Ignore
-            );
-        }
-
-        if (verboseLogs && count == 0)
-        {
-            Debug.Log($"[AutoFire] No colliders in range. range={range}, usingLayerFilter={useLayerFilter}");
-        }
-
-        IDamageable bestDmg = null;
-        Transform bestT = null;
-        float bestSqr = float.PositiveInfinity;
-        Vector3 p = transform.position;
-
-        for (int i = 0; i < count; i++)
-        {
-            var c = _hits[i]; if (!c) continue;
-
-            if (!c.TryGetComponent<IDamageable>(out var dmg))
+            mask = enemyLayers.value;
+            if (mask == 0 && fallbackScanAllIfMaskZero)
             {
-                // common case: script is on root or attached rigidbody
-                if (c.attachedRigidbody)
-                    dmg = c.attachedRigidbody.GetComponent<IDamageable>();
-                if (dmg == null)
-                    dmg = c.GetComponentInParent<IDamageable>();
+                mask = ~0;
+                if (logVerbose)
+                    Debug.LogWarning("[AutoFire] enemyLayers mask is ZERO; using ALL layers for now. Set enemyLayers to your Enemy layer to remove this warning.");
             }
+        }
+
+        // Scan
+        var colliders = Physics.OverlapSphere(
+            origin,
+            range,
+            mask,
+            includeTriggers ? QueryTriggerInteraction.Collide : QueryTriggerInteraction.Ignore
+        );
+
+        if (colliders == null || colliders.Length == 0)
+        {
+            if (logVerbose)
+                Debug.Log($"[AutoFire] No colliders in range. range={range}, usingLayerFilter={!debugIgnoreLayerMask}, mask=0x{mask:X}");
+            return;
+        }
+
+        IDamageable best = null;
+        Transform bestTf = null;
+        float bestDistSqr = float.PositiveInfinity;
+
+        foreach (var col in colliders)
+        {
+            if (!col) continue;
+
+            // Exclude any collider that belongs to our own root (prevents shooting self)
+            if (IsInSameRoot(col.transform, _root)) continue;
+
+            // Optional tag gate: accept if the collider OR any parent carries the targetTag
+            if (!string.IsNullOrEmpty(targetTag))
+            {
+                if (!HasTagInParents(col.transform, targetTag))
+                    continue;
+            }
+
+            var dmg = col.GetComponentInParent<IDamageable>();
             if (dmg == null) continue;
 
-            var t = dmg.GetTransform();
-            if (!t) continue;
+            var targetTf = dmg.GetTransform();
+            if (targetTf == null) targetTf = col.transform;
 
-            float sqr = (t.position - p).sqrMagnitude;
-            if (sqr < bestSqr)
+            if (requireLineOfSight && !HasLineOfSight(origin, targetTf.position))
+                continue;
+
+            float d2 = (targetTf.position - origin).sqrMagnitude;
+            if (d2 < bestDistSqr)
             {
-                bestSqr = sqr;
-                bestDmg = dmg;
-                bestT = t;
+                best = dmg;
+                bestTf = targetTf;
+                bestDistSqr = d2;
             }
         }
 
-        if (bestDmg == null)
+        if (best == null)
         {
-            if (verboseLogs)
-                Debug.Log("[AutoFire] Found colliders but none had IDamageable (check enemy health script & placement).");
-            return false;
+            if (logVerbose)
+                Debug.Log("[AutoFire] Found colliders but none passed filters (IDamageable / tag / self-exclusion / LOS).");
+            return;
         }
 
-        bestDmg.TakeDamage(damage, transform.position);
+        best.TakeDamage(damage, origin);
+        _hadHitThisFrame = true;
+        _lastShotTo = bestTf ? bestTf.position : origin;
 
-        if (animator && !string.IsNullOrEmpty(fireTrigger))
-            animator.SetTrigger(fireTrigger);
-        if (muzzleFlash) muzzleFlash.Play();
-
-        // Debug line so you can see shots in Scene view
-        Debug.DrawLine(transform.position, bestT.position, Color.red, 0.15f);
-
-        return true;
+        if (logVerbose)
+        {
+            string targetName = bestTf ? bestTf.name : "target";
+            Debug.Log($"[AutoFire] DEALT {damage} dmg to {targetName} @ {Mathf.Sqrt(bestDistSqr):0.0}m");
+        }
     }
 
-#if UNITY_EDITOR
-    void OnDrawGizmosSelected()
+    // ---- helpers ----
+
+    static bool IsInSameRoot(Transform t, Transform root)
     {
-        Gizmos.color = new Color(1f, 0.3f, 0.2f, 0.25f);
-        Gizmos.DrawWireSphere(transform.position, range);
+        if (t == null || root == null) return false;
+        var p = t;
+        while (p != null)
+        {
+            if (p == root) return true;
+            p = p.parent;
+        }
+        return false;
     }
-#endif
+
+    static bool HasTagInParents(Transform t, string tag)
+    {
+        if (string.IsNullOrEmpty(tag)) return true;
+        var p = t;
+        while (p != null)
+        {
+            if (p.CompareTag(tag)) return true;
+            p = p.parent;
+        }
+        return false;
+    }
+
+    bool HasLineOfSight(Vector3 from, Vector3 to)
+    {
+        if (losBlockers.value == 0) return true;
+
+        Vector3 dir = (to - from);
+        float dist = dir.magnitude;
+        if (dist <= 0.0001f) return true;
+        dir /= dist;
+
+        bool blocked = Physics.Raycast(from, dir, dist, losBlockers, QueryTriggerInteraction.Ignore);
+        if (blocked && logVerbose) Debug.Log("[AutoFire] LOS blocked.");
+        return !blocked;
+    }
+
+    void OnDrawGizmos()
+    {
+        if (!drawGizmos) return;
+        Gizmos.DrawWireSphere(muzzle ? muzzle.position : transform.position, range);
+        if (_hadHitThisFrame) Gizmos.DrawLine(_lastShotFrom, _lastShotTo);
+    }
 }

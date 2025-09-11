@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -11,17 +12,25 @@ public class EnemySpawner : MonoBehaviour
     public int enemiesPerWave = 5;
 
     [Header("Spawn Points (optional)")]
-    public Transform[] spawnPoints;   // assign in Inspector
+    public Transform[] spawnPoints;
 
     [Header("Around Player Fallback (optional)")]
-    public Transform player;          // assign Player root if you want near-player spawning
-    public float spawnRadius = 20f;   // farthest distance from player
-    public float minDistanceFromPlayer = 8f; // don’t spawn too close
+    public Transform player;
+    public float spawnRadius = 20f;
+    public float minDistanceFromPlayer = 8f;
 
     [Header("NavMesh Safety")]
-    public bool snapToNavMesh = true;         // keep this ON
-    public float navMeshSnapMaxDist = 8f;     // how far we’ll search to snap onto a mesh
-    public bool requireReachableFromPlayer = true; // avoid isolated islands
+    public bool snapToNavMesh = true;
+    public float navMeshSnapMaxDist = 8f;
+    public bool requireReachableFromPlayer = true;
+
+    [Header("Layers (optional)")]
+    [Tooltip("If set, newly spawned enemies will be forced onto this layer (and all children).")]
+    public string forceEnemyLayerName = "Enemy";
+    public bool forceEnemyLayer = true;
+
+    [Header("Diagnostics")]
+    public bool logVerbose = true;
 
     float _timer;
 
@@ -33,7 +42,6 @@ public class EnemySpawner : MonoBehaviour
         if (minDistanceFromPlayer < 0f) minDistanceFromPlayer = 0f;
         if (navMeshSnapMaxDist < 0.1f) navMeshSnapMaxDist = 0.1f;
 
-        // trim null spawn points
         if (spawnPoints != null)
         {
             int valid = 0;
@@ -47,28 +55,59 @@ public class EnemySpawner : MonoBehaviour
         }
     }
 
-    void Update()
+    IEnumerator Start()
     {
-        // Only spawn during gameplay
-        if (GameLoop.I == null || GameLoop.I.State != GameState.Playing) return;
+        if (logVerbose) Debug.Log("[EnemySpawner] Start() begin");
 
-        _timer -= Time.deltaTime;
-        if (_timer <= 0f)
+        yield return new WaitUntil(() => GameLoop.I != null);
+        if (logVerbose) Debug.Log($"[EnemySpawner] GameLoop found. State={GameLoop.I.State}");
+
+        yield return new WaitUntil(() => GameLoop.I.State == GameState.Playing);
+        if (logVerbose) Debug.Log("[EnemySpawner] Game state is Playing");
+
+        if (!player)
         {
-            SpawnWave();
-            _timer = Mathf.Max(0.1f, spawnInterval);
+            var pgo = GameObject.FindGameObjectWithTag("Player");
+            if (pgo) player = pgo.transform;
+            if (logVerbose) Debug.Log($"[EnemySpawner] Player reference {(player ? "set" : "NOT found")}");
         }
+
+        if (!enemyPrefab)
+        {
+            Debug.LogError("[EnemySpawner] enemyPrefab not assigned. No spawns will occur.");
+            yield break;
+        }
+
+        if ((spawnPoints == null || spawnPoints.Length == 0) && !player)
+        {
+            Debug.LogWarning("[EnemySpawner] No spawn points and no player set. Cannot determine spawn positions.");
+            yield break;
+        }
+
+        _timer = 0f; // spawn immediately
+        if (logVerbose) Debug.Log("[EnemySpawner] Spawn loop starting.");
+        StartCoroutine(SpawnLoop());
     }
 
-    // === Public APIs ===
+    IEnumerator SpawnLoop()
+    {
+        while (GameLoop.I != null && GameLoop.I.State == GameState.Playing)
+        {
+            _timer -= Time.deltaTime;
+            if (_timer <= 0f)
+            {
+                if (logVerbose) Debug.Log("[EnemySpawner] Spawning wave…");
+                SpawnWave();
+                _timer = Mathf.Max(0.1f, spawnInterval);
+            }
+            yield return null;
+        }
+        if (logVerbose) Debug.Log("[EnemySpawner] Spawn loop stopped (state not Playing).");
+    }
 
     public void SpawnWave()
     {
-        if (!enemyPrefab)
-        {
-            Debug.LogError("[EnemySpawner] enemyPrefab not assigned.");
-            return;
-        }
+        if (!enemyPrefab) { Debug.LogError("[EnemySpawner] enemyPrefab not assigned."); return; }
 
         if (spawnPoints != null && spawnPoints.Length > 0)
         {
@@ -86,7 +125,6 @@ public class EnemySpawner : MonoBehaviour
         }
     }
 
-    // used by WaveDirector (scaling)
     public void SpawnWaveScaled(int count, float healthMultiplier)
     {
         if (!enemyPrefab) { Debug.LogError("[EnemySpawner] enemyPrefab not assigned."); return; }
@@ -107,8 +145,6 @@ public class EnemySpawner : MonoBehaviour
         }
     }
 
-    // === Internals ===
-
     void SpawnAtPoint(Transform point, float healthMultiplier = 1f)
     {
         if (!point) return;
@@ -118,7 +154,7 @@ public class EnemySpawner : MonoBehaviour
 
         if (snapToNavMesh && !TrySnapToNavMesh(pos, out pos))
         {
-            Debug.LogWarning("[EnemySpawner] Spawn point off NavMesh; skipping.");
+            if (logVerbose) Debug.LogWarning("[EnemySpawner] Spawn point off NavMesh; skipping.");
             return;
         }
 
@@ -132,10 +168,9 @@ public class EnemySpawner : MonoBehaviour
 
         if (!TryGetSpawnPositionNearPlayer(player.position, minDistanceFromPlayer, spawnRadius, out var pos))
         {
-            // optional fallback: anywhere on navmesh
             if (!TryPickRandomPointOnNavMesh(out pos))
             {
-                // give up silently to avoid spam
+                if (logVerbose) Debug.LogWarning("[EnemySpawner] Could not find a valid spawn position near player or on NavMesh.");
                 return;
             }
         }
@@ -144,9 +179,40 @@ public class EnemySpawner : MonoBehaviour
         ApplyHealthMult(enemy, healthMultiplier);
     }
 
+    GameObject SpawnEnemy(Vector3 pos, Quaternion rot)
+    {
+        var go = Instantiate(enemyPrefab, pos, rot);
+
+        // Optionally force layer on all spawned enemies so the weapon mask matches.
+        if (forceEnemyLayer && !string.IsNullOrEmpty(forceEnemyLayerName))
+        {
+            int layer = LayerMask.NameToLayer(forceEnemyLayerName);
+            if (layer >= 0)
+                SetLayerRecursively(go, layer);
+        }
+
+        var agent = go.GetComponent<NavMeshAgent>();
+        if (agent && !agent.isOnNavMesh)
+        {
+            if (NavMesh.SamplePosition(pos, out var hit, navMeshSnapMaxDist, NavMesh.AllAreas))
+                agent.Warp(hit.position);
+            else
+                Debug.LogWarning("[EnemySpawner] Spawned enemy off NavMesh and couldn’t warp onto it.");
+        }
+        return go;
+    }
+
+    void ApplyHealthMult(GameObject enemy, float mult)
+    {
+        if (!enemy || mult <= 1.001f) return;
+        var eh = enemy.GetComponent<EnemyHealth>();
+        if (eh) eh.ApplyHealthMultiplier(mult);
+    }
+
+    // ----- Helpers -----
+
     bool TryGetSpawnPositionNearPlayer(Vector3 center, float minR, float maxR, out Vector3 pos)
     {
-        // try several angles/radii around the player, snapping each to NavMesh
         for (int i = 0; i < 12; i++)
         {
             float ang = Random.Range(0f, Mathf.PI * 2f);
@@ -176,7 +242,6 @@ public class EnemySpawner : MonoBehaviour
         Vector3 b = tri.vertices[tri.indices[t + 1]];
         Vector3 c = tri.vertices[tri.indices[t + 2]];
 
-        // random point in triangle
         float r1 = Mathf.Sqrt(Random.value);
         float r2 = Random.value;
         Vector3 p = (1 - r1) * a + r1 * (1 - r2) * b + r1 * r2 * c;
@@ -209,26 +274,10 @@ public class EnemySpawner : MonoBehaviour
         return path.status == NavMeshPathStatus.PathComplete;
     }
 
-    GameObject SpawnEnemy(Vector3 pos, Quaternion rot)
+    static void SetLayerRecursively(GameObject go, int layer)
     {
-        var go = Instantiate(enemyPrefab, pos, rot);
-
-        // ensure agent actually lands on the mesh
-        var agent = go.GetComponent<NavMeshAgent>();
-        if (agent && !agent.isOnNavMesh)
-        {
-            if (NavMesh.SamplePosition(pos, out var hit, navMeshSnapMaxDist, NavMesh.AllAreas))
-                agent.Warp(hit.position);
-            else
-                Debug.LogWarning("[EnemySpawner] Spawned enemy off NavMesh and couldn’t warp onto it.");
-        }
-        return go;
-    }
-
-    void ApplyHealthMult(GameObject enemy, float mult)
-    {
-        if (!enemy || mult <= 1.001f) return;
-        var eh = enemy.GetComponent<EnemyHealth>();
-        if (eh) eh.ApplyHealthMultiplier(mult);
+        go.layer = layer;
+        foreach (Transform t in go.transform)
+            SetLayerRecursively(t.gameObject, layer);
     }
 }

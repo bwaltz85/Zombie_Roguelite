@@ -1,99 +1,63 @@
-using UnityEngine;
+﻿using UnityEngine;
 
+/// <summary>
+/// Applies CharacterData to the player at spawn/scene load.
+/// Ensures AbilityManager exists and attach points are rebound to the instance.
+/// </summary>
 public class PlayerSetup : MonoBehaviour
 {
-    [Tooltip("Optional default for quick tests; your character select will call ApplyData at runtime.")]
-    public CharacterData data;
+    [Header("References")]
+    public AbilityManager abilityManager;
 
-    [Header("Attach points (optional)")]
-    public Transform weaponParent;   // where startingWeaponPrefab is placed (defaults to player root)
-    public Transform abilityParent;  // where abilities are placed (defaults to player root)
+    [Header("Attach Points (optional; instance children will be used/created)")]
+    public Transform abilityAttach; // forwarded into AbilityManager if set
+    public Transform passiveAttach; // forwarded into AbilityManager if set
 
-    [Header("Cleanup Options")]
-    public bool clearExistingAbilitiesOnApply = true;
-    public bool clearExistingWeaponsOnApply = true;
-
-    void Start()
+    void Reset()
     {
-        // For direct Inspector testing: if data is set, apply it on scene start
-        if (data != null) ApplyData(data);
+        abilityManager = GetComponent<AbilityManager>();
     }
 
-    /// <summary>
-    /// Applies a CharacterData to this player: clears old loadout, sets stats, passive,
-    /// and instantiates 3 actives + 1 ultimate abilities and optional starting weapon.
-    /// Safe to call whenever you (re)select a character.
-    /// </summary>
-    public void ApplyData(CharacterData cd)
+    void Awake()
     {
-        if (cd == null)
+        if (!abilityManager) abilityManager = GetComponent<AbilityManager>();
+        if (!abilityManager) abilityManager = gameObject.AddComponent<AbilityManager>();
+
+        // Forward any explicitly set attach points (they will be rebound in AbilityManager.Awake)
+        if (abilityAttach) abilityManager.abilityAttach = abilityAttach;
+        if (passiveAttach) abilityManager.passiveAttach = passiveAttach;
+    }
+
+    public void ApplyData(CharacterData data)
+    {
+        if (!data)
         {
             Debug.LogWarning("[PlayerSetup] ApplyData called with null CharacterData.");
             return;
         }
 
-        data = cd;
-
-        // 1) Clear previous abilities & weapon
-        if (clearExistingAbilitiesOnApply) ClearAbilities();
-        if (clearExistingWeaponsOnApply) ClearStartingWeapon();
-
-        // 2) Base stats
-        var hp = GetComponent<PlayerHealth>();
-        if (hp)
+        if (!abilityManager)
         {
-            // Adjust current max to target max; heal to full after change
-            float delta = cd.maxHP - hp.maxHP;
-            hp.AddMaxHealth(delta, healToFull: true);
+            abilityManager = GetComponent<AbilityManager>();
+            if (!abilityManager) abilityManager = gameObject.AddComponent<AbilityManager>();
         }
 
-        var ctrl = GetComponent<TopDownPlayerController>();
-        if (ctrl) ctrl.moveSpeed = cd.moveSpeed;
+        abilityManager.SetAbilitiesFromPrefabs(
+            data.ability1Prefab,
+            data.ability2Prefab,
+            data.ability3Prefab,
+            data.ultimatePrefab
+        );
 
-        // 3) Passive
-        if (cd.passive) cd.passive.ApplyOnSpawn(gameObject);
+        abilityManager.SetPassiveFromPrefab(data.passivePrefab);
 
-        // 4) Abilities (3 actives + 1 ultimate)
-        var mgr = GetComponent<AbilityManager>();
-        if (!mgr) mgr = gameObject.AddComponent<AbilityManager>();
-        mgr.ClearAbilitySlots();
-
-        Transform abilRoot = abilityParent ? abilityParent : transform;
-        mgr.SetAbilitiesFromPrefabs(cd.active1Prefab, cd.active2Prefab, cd.active3Prefab, cd.ultimateAbilityPrefab, abilRoot);
-
-        // 5) Starting weapon (optional)
-        if (cd.startingWeaponPrefab)
-        {
-            Transform wRoot = weaponParent ? weaponParent : transform;
-            Instantiate(cd.startingWeaponPrefab, wRoot);
-        }
-
-        Debug.Log($"[PlayerSetup] Applied character: {cd.characterName}");
-    }
-
-    // ---- Helpers ----
-
-    void ClearAbilities()
-    {
-        Transform root = abilityParent ? abilityParent : transform;
-        var abilityInstances = root.GetComponentsInChildren<AbilityBase>(includeInactive: true);
-        foreach (var ab in abilityInstances)
-        {
-            // Destroy the GameObject that holds the ability component (often a small child prefab)
-            if (ab) Destroy(ab.gameObject);
-        }
-    }
-
-    void ClearStartingWeapon()
-    {
-        if (!weaponParent) return;
-
-        // Simple strategy: remove all children under the weaponParent.
-        // If you later mix other things under this parent, add tags/layers to filter.
-        for (int i = weaponParent.childCount - 1; i >= 0; i--)
-        {
-            var child = weaponParent.GetChild(i);
-            Destroy(child.gameObject);
-        }
+        Debug.Log(
+            "[PlayerSetup] Applied CharacterData '" + data.name + "' to '" + gameObject.name + "'.\n" +
+            "- ability1: " + (abilityManager.ability1 ? abilityManager.ability1.GetType().Name : "NULL") + "\n" +
+            "- ability2: " + (abilityManager.ability2 ? abilityManager.ability2.GetType().Name : "NULL") + "\n" +
+            "- ability3: " + (abilityManager.ability3 ? abilityManager.ability3.GetType().Name : "NULL") + "\n" +
+            "- ultimate: " + (abilityManager.ultimate ? abilityManager.ultimate.GetType().Name : "NULL") + "\n" +
+            "- passiveInstance: " + (abilityManager.passiveInstance ? abilityManager.passiveInstance.name : "NULL")
+        );
     }
 }
